@@ -9,7 +9,7 @@ type PipelineMessage struct {
 	Drop        bool
 }
 ```
-It is the data format which is passed through the routines of the pipeline. You can store your data inside its ```Content``` memeber.
+It is the data format which is passed through the routines of the pipeline. You can store your data inside its ```Content``` member.
 A message enters the pipeline using ```func (pipe *Pipeline) SendMessage(msg PipelineMessage)```.
 
 
@@ -62,7 +62,7 @@ type PipelineProcess struct {
 
 A pipeline process represents a stage of the pipeline.
 In a one way pipeline, a process needs to have only ```inProcess``` member set.
-In a one way pipeline, a process needs to have both ```inProcess``` and ```outProcess``` members set.
+In a two way pipeline, a process needs to have both ```inProcess``` and ```outProcess``` members set.
 
 ```inProcess``` operates on the message as it traverses the pipeline before it changes direction in which case ```outProcess``` will be called.
 
