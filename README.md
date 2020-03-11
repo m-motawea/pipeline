@@ -1,6 +1,6 @@
 ### Basic Structures:
 ##### 1- pipeline.PipelineMessage:
-```
+```go
 type PipelineMessage struct {
 	LastProcess int
 	Direction   PipelineDirection
@@ -14,7 +14,7 @@ A message enters the pipeline using ```func (pipe *Pipeline) SendMessage(msg Pip
 
 
 ##### 2- pipeline.Pipeline:
-```
+```go
 type Pipeline struct {
 	Name            string
 	pipeChannel     PipelineChannel
@@ -33,7 +33,7 @@ A pipeline is composed of multiple processes executing on a message in order unt
 A pipeline can pass messages to processes either in one way (up the pipeline) in which each process operates one time at max on the message, or in two way (Up then down the pipeline) in which each process operates two times at max on the message.
 
 To create a pipeline you can use ```func NewPipeline(name string, twoWay bool, wg *sync.WaitGroup, consumerChannel ...PipelineChannel) (Pipeline, error)```:
-```
+```go
 // Create a one way pipeline
 var wg sync.WaitGroup
 pipe1, _ := NewPipeline("test_pipeline", false, &wg)
@@ -47,7 +47,7 @@ You can pass an optional parameter of type ```pipeline.PipelineChannel``` when c
 
 
 ##### 3- pipeline.PipelineProcess:
-```
+```go
 type PipelineProcess struct {
 	Id           int
 	Name         string
@@ -67,7 +67,7 @@ In a one way pipeline, a process needs to have both ```inProcess``` and ```outPr
 ```inProcess``` operates on the message as it traverses the pipeline before it changes direction in which case ```outProcess``` will be called.
 
 To create a process you can use ```func NewPipelineProcess(name string, inProcess func(PipelineProcess, PipelineMessage) PipelineMessage, outProcess ...func(PipelineProcess, PipelineMessage) PipelineMessage) (PipelineProcess, error)```:
-```
+```go
 Func := func(proc PipelineProcess, msg PipelineMessage) PipelineMessage {
 		log.Println("inFunc received msg")
 		val, ok := msg.Content.(int)
