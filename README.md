@@ -9,7 +9,7 @@ type PipelineMessage struct {
 	Drop        bool
 }
 ```
-It is the data format whihc is passed through the routines of the pipeline. You can store your data inside its ```Content`` memeber.
+It is the data format which is passed through the routines of the pipeline. You can store your data inside its ```Content``` memeber.
 A message enters the pipeline using ```func (pipe *Pipeline) SendMessage(msg PipelineMessage)```.
 
 
