@@ -109,7 +109,7 @@ func TestTwoWayPipelineConsumer(t *testing.T) {
 	log.Println("Pipeline started")
 	go func() {
 		i := 0
-		for i < 20 {
+		for i < 19 {
 			log.Println("Waiting for pipe result")
 			select {
 			case <-pipe.consumerChannel:

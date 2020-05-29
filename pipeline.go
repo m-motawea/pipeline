@@ -231,7 +231,7 @@ func (pipe *Pipeline) twoWayLoop() {
 				if msg.Finished {
 					if msg.LastProcess > 0 {
 						log.Printf("Pipeline %s: Passing to out proc", pipe.Name)
-						nexProc := pipe.processes[msg.LastProcess-1]
+						nexProc := pipe.processes[msg.LastProcess]
 						msg.Direction = PipelineOutDirection{}
 						go nexProc.OutQueue(msg)
 						continue
