@@ -1,4 +1,4 @@
-![Go](https://github.com/m-motawea/pipeline/workflows/Go/badge.svg)
+![Go](https://github.com/m-motawea/pipeline/workflows/Go/badge.svg?branch=master)
 
 ### Basic Structures:
 ##### 1- pipeline.PipelineMessage:
