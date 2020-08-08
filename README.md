@@ -1,3 +1,5 @@
+![Go](https://github.com/m-motawea/pipeline/workflows/Go/badge.svg)
+
 ### Basic Structures:
 ##### 1- pipeline.PipelineMessage:
 ```go
