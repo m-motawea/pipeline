@@ -1,90 +1,85 @@
 ![Go](https://github.com/m-motawea/pipeline/workflows/Go/badge.svg?branch=master)
 
-### Basic Structures:
+An advanced framework for pipeline processing built to process messages in a structured, staged manner similar to network switches and routers. This project natively supports **horizontal scaling** and **distributed workloads** via pluggable message queue drivers (Local Channels, Redis, AMQP/RabbitMQ). This permits launching thousands of goroutines within one process, or physically distributing nodes on servers to load balance pipeline stages.
+
+### Basic Structures & Usage:
+
 ##### 1- pipeline.PipelineMessage:
 ```go
+type PipelineDirection string
+
+const (
+	PipelineInDirection  PipelineDirection = "IN"
+	PipelineOutDirection PipelineDirection = "OUT"
+)
+
 type PipelineMessage struct {
 	LastProcess int
 	Direction   PipelineDirection
-	Content     interface{}
+	Content     []byte
 	Finished    bool
 	Drop        bool
 }
 ```
-It is the data format which is passed through the routines of the pipeline. You can store your data inside its ```Content``` member.
-A message enters the pipeline using ```func (pipe *Pipeline) SendMessage(msg PipelineMessage)```.
+The standard object passed through the pipeline stages. Since pipeline components routinely span over the network, `Content` explicitly accepts binary byte slices (`[]byte`). Clients are expected to easily parse (`json.Marshal`) structures internally within process logic stages.
+A message enters the initial queue via `func (pipe *Pipeline) SendMessage(msg PipelineMessage)`.
 
+##### 2- pipeline.Queue Drivers:
+The pipeline internally routes messages between discrete processes exclusively by utilizing dependencies fulfilling the `pipeline.Queue` interface. First-party implementations include:
 
-##### 2- pipeline.Pipeline:
+- **LocalQueue (`github.com/m-motawea/pipeline/localqueue`)**: Leverages standard Go buffered channels for extremely fast isolated concurrent processing locally.
+- **RedisQueue (`github.com/m-motawea/pipeline/redisqueue`)**: Leverages Redis Lists natively relying on `BLPOP` to structurally enforce single-delivery worker lock load distribution across multiple servers.
+- **AMQPQueue (`github.com/m-motawea/pipeline/amqpqueue`)**: Connects to RabbitMQ architectures natively mapping active consumer channels.
+
+##### 3- pipeline.Pipeline:
+A pipeline is composed of multiple processes executing sequentially on a message in order until:
+1. Message is set as `Finished` by a process.
+2. Message is set as `Drop` by a process.
+3. No more processes exist linearly in the pipeline.
+
+Messages traverse either *one-way* (up the pipeline routing) or *two-ways* (up then down reflecting backwards dynamically).
+
+To initialize a pipeline by binding your configured queue driver:
 ```go
-type Pipeline struct {
-	Name            string
-	pipeChannel     PipelineChannel
-	processes       []*PipelineProcess
-	twoWay          bool
-	closeChannel    chan int
-	wg              *sync.WaitGroup
-	consumerChannel PipelineChannel
-}
-```
-A pipeline is composed of multiple processes executing on a message in order until:
-1- Message is set as Finished by a process.
-2- Message is set as Drop by a process.
-3- No more processes in the pipeline.
+import "github.com/m-motawea/pipeline/localqueue"
 
-A pipeline can pass messages to processes either in one way (up the pipeline) in which each process operates one time at max on the message, or in two way (Up then down the pipeline) in which each process operates two times at max on the message.
+var wg sync.WaitGroup
+driver := localqueue.NewLocalQueue()
 
-To create a pipeline you can use ```func NewPipeline(name string, twoWay bool, wg *sync.WaitGroup, consumerChannel ...PipelineChannel) (Pipeline, error)```:
-```go
 // Create a one way pipeline
-var wg sync.WaitGroup
-pipe1, _ := NewPipeline("test_pipeline", false, &wg)
-
-// Create a two way pipeline
-var wg sync.WaitGroup
-pipe2, _ := NewPipeline("test_pipeline", true, &wg)
+pipe1, _ := pipeline.NewPipeline("production_pipeline", false, &wg, driver)
 ```
 
-You can pass an optional parameter of type ```pipeline.PipelineChannel``` when creating a pipeline which is used to send the result of the pipeline.
-
-
-##### 3- pipeline.PipelineProcess:
+##### 4- pipeline.PipelineProcess:
 ```go
 type PipelineProcess struct {
 	Id           int
 	Name         string
-	inProcess    func(PipelineProcess, PipelineMessage) PipelineMessage
-	outProcess   func(PipelineProcess, PipelineMessage) PipelineMessage
-	inChannel    PipelineChannel
-	outChannel   PipelineChannel
-	CloseChannel chan int
-	Pipe         *Pipeline
+	Concurrency  int
+	// ... unexported parameters
 }
 ```
 
-A pipeline process represents a stage of the pipeline.
-In a one way pipeline, a process needs to have only ```inProcess``` member set.
-In a two way pipeline, a process needs to have both ```inProcess``` and ```outProcess``` members set.
+A pipeline process represents a configured stage of the pipeline graph. `Concurrency` explicitly dictates the amount of discrete workers/goroutines to spontaneously spawn when evaluating messages on the queue asynchronously.
 
-```inProcess``` operates on the message as it traverses the pipeline before it changes direction in which case ```outProcess``` will be called.
-
-To create a process you can use ```func NewPipelineProcess(name string, inProcess func(PipelineProcess, PipelineMessage) PipelineMessage, outProcess ...func(PipelineProcess, PipelineMessage) PipelineMessage) (PipelineProcess, error)```:
+To construct a process, define your manipulation tracking evaluating `msg.Content` bytes:
 ```go
-Func := func(proc PipelineProcess, msg PipelineMessage) PipelineMessage {
-		log.Println("inFunc received msg")
-		val, ok := msg.Content.(int)
-		if ok {
-			
-			msg.Content = val + 1
-		}
-		return msg
-	}
+inFunc := func(proc pipeline.PipelineProcess, msg pipeline.PipelineMessage) pipeline.PipelineMessage {
+    // Process input data logic 
+    log.Printf("Worker processing on stage %s", proc.Name)
+    // Marshal customized updates...
+    return msg
+}
 
-// Create a process used for a one way pipeline
-proc1, _ := NewPipelineProcess("test_proc1", Func)
-// Create a process used for a two way pipeline
-proc2, _ := NewPipelineProcess("test_proc2", Func, Func)
+// Instantiate the distinct processing node
+proc1, _ := pipeline.NewPipelineProcess("stage_1_authentication", inFunc)
+
+// Scale concurrency to 10 lightweight thread workers instantly bridging the local queue!
+proc1.Concurrency = 10 
+
+pipe1.AddProcess(&proc1)
+pipe1.Start() // Initiates standard asynchronous worker polls.
 ```
 
-To add a process to a pipeline use ```func (pipe *Pipeline) AddProcess(proc *PipelineProcess)```:
-
+## Running Distributed Tests
+To see real functional distributed deployment examples running separate CLI apps communicating reliably through Redis or RabbitMQ architectures, view the `examples/distributed` directory!
